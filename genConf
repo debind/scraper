@@ -1,0 +1,47 @@
+#!/bin/bash
+
+TMPFILE1=tmp1
+TMPFILE2=tmp2
+
+gamefile0=`echo $1`
+gamefile1=`echo $2`
+gamefile2=`echo $3`
+gamefile3=`echo $4`
+drives=`echo $5`
+confname=`echo $6`
+
+cat gametemplate500.conf | sed "s|df0=\(.*\)|df0=$gamefile0|g"  | sed "s|df1=\(.*\)|df1=$gamefile1|g" | sed "s|df2=\(.*\)|df2=$gamefile2|g" | sed "s|df3=\(.*\)|df3=$gamefile3|g" > $TMPFILE1
+
+cat $TMPFILE1 | sed "s|drives=\(.*\)|drives=$drives|g" > $TMPFILE2
+
+if [ "$drives" = "1" ]; then
+	cat $TMPFILE2 | sed '/df3=/d' | sed '/df2=/d' | sed '/df1=/d' > "${confname}"
+fi
+
+if [ "$drives" = "2" ]; then
+	cat $TMPFILE2 | sed '/df3=/d' | sed '/df2=/d' > "${confname}"
+fi
+
+if [ "$drives" = "3" ]; then
+	cat $TMPFILE2 | sed '/df3=/d' > "${confname}"
+fi
+
+if [ "$drives" = "4" ]; then
+	cat $TMPFILE2  > "${confname}"
+fi
+
+rm $TMPFILE1
+rm $TMPFILE2
+
+
+
+
+
+
+
+
+
+
+
+
+

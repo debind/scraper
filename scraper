@@ -1,0 +1,397 @@
+#!/bin/bash
+
+# param 1: directory to search for game files (file ending is not important)
+# param 2: name of the target
+
+function print_usage {
+	echo USAGE: scraper directory targetname
+	echo                directory: directory containing rom-file \(*.adf\)
+	echo                targetname: name for the directory where to store the generated conf files
+	exit 1
+}
+
+romdir=`echo $1`
+romdir=${romdir%/}
+romdir=${romdir}/
+
+targetdir=`echo $1`
+targetdir=${targetdir%/}
+targetdir=${targetdir%/*}
+targetdir=${targetdir}/
+
+target=`echo $2/`
+target=${target%/}
+target=${target}/
+
+GAMELIST="gamelist.xml"
+LEMONAMIGAMETA="./LemonAmigaMeta"
+LEMONAMIGAID="./LemonAmigaId"
+GENERATECONF="./genConf"
+
+DOWNLOADED_PICS_DIR="/home/pi/.emulationstation/downloaded_images/"
+GAMELISTS_DIR="/home/pi/.emulationstation/gamelists/"
+CONFDIR="${targetdir}conf/"
+
+TARGETGAMELISTDIR=${GAMELISTS_DIR}${target}
+TARGETGAMELIST=${TARGETGAMELISTDIR}${GAMELIST}
+TARGETPICSDIR=${DOWNLOADED_PICS_DIR}${target}
+
+meta=""
+publisher=""
+year=""	
+genre=""	
+coder=""
+hardware=""
+disks=""
+picurl=""
+number=""
+filenames=""
+COUNTER=0
+COLM=0
+oldgamename=""
+gamefile=""
+gamename=""
+
+COUNTER=0
+
+ls ${targetdir} >2 /dev/null || print_usage
+ls ${romdir}    >2 /dev/null || print_usage
+
+FAILLIST="./failure.txt"
+
+mkdir ${DOWNLOADED_PICS_DIR} 2> /dev/null
+mkdir ${TARGETPICSDIR}       2> /dev/null
+mkdir ${GAMELISTS_DIR}       2> /dev/null
+mkdir ${TARGETGAMELISTDIR}   2> /dev/null
+mkdir ${CONFDIR}             2> /dev/null
+
+# CONFDIR=${CONFDIR}${target}
+# mkdir ${CONFDIR}             2> /dev/null
+
+echo '<?xml version="1.0"?>' > ${TARGETGAMELIST}
+echo '<gameList>' >> ${TARGETGAMELIST}
+
+echo "failure list of the amiga scraper" > $FAILLIST
+
+#------------------------------------------------------------------
+# count number of files
+#------------------------------------------------------------------
+number=`ls -1 "${romdir}" | cut -b 1-500 | awk 'BEGIN{num=0}{num++}END{print num}'` 
+
+#------------------------------------------------------------------
+# get all files and enclose them into " "
+#------------------------------------------------------------------
+filenames=`ls -1 "${romdir}" | cut -b 1-500 | awk '{print "\"" $0 "\""}'`
+
+#------------------------------------------------------------------
+# process each file
+#------------------------------------------------------------------
+while [  ${COUNTER} -lt ${number} ]; do
+
+    let COUNTER=COUNTER+1 
+    let COLM=COUNTER*2
+
+    #--------------------------------------------------------------
+    # get the current gamefile
+    #--------------------------------------------------------------
+    gamefile=`echo ${filenames} | cut -f ${COLM} -d '"'` 
+
+    #--------------------------------------------------------------
+    # rename current file if some special characters are in the name
+    #--------------------------------------------------------------
+    orggamefile="${gamefile}"
+    gamefile=`echo ${gamefile}`
+    newgamefile=`echo ${gamefile}  | tr '-' ' '  | tr \' ' ' | tr \´ ' ' | tr -s ' ' | sed 's/III/3/g' | sed 's/II/2/g'`
+    if [ "${gamefile}" != "${newgamefile}" ]; then
+	    mv "${romdir}${orggamefile}" "${romdir}${newgamefile}"
+	    gamefile="${newgamefile}"
+    fi
+
+    #--------------------------------------------------------------
+    # get the current gamename
+    #--------------------------------------------------------------
+    gamename=`echo ${filenames} | cut -f ${COLM} -d '"'`
+    gamename=${gamename%.*}
+    gamename=${gamename%%(*}
+
+    #--------------------------------------------------------------
+    # generate the gamepattern for the current game
+    #--------------------------------------------------------------
+    gamepattern=`echo ${gamename}  | tr '-' ' ' | tr [[\']] ' ' | tr -s ' ' | sed 's/III/3/g' | sed 's/II/2/g'`
+
+    #--------------------------------------------------------------
+    # generate a pattern that must be ZERO at the end to evaluate 
+    # the current file as a valid one.
+    #--------------------------------------------------------------
+    pattern1=`echo ${gamefile} | grep "Disk 2"`
+    pattern2=`echo ${gamefile} | grep "Disk 3"`
+    pattern3=`echo ${gamefile} | grep "Disk 4"`
+    pattern4=`echo ${gamefile} | grep "Disk 5"`
+    pattern5=`echo ${gamefile} | grep "disk 5"`
+    pattern6=`echo ${gamefile} | grep "disk 6"`
+    pattern8=`echo ${gamefile} | grep "Disk 8"`
+    pattern9=`echo ${gamefile} | grep "Disk 9"`
+
+    pattern=$pattern1$pattern2$pattern3$pattern4$pattern5$pattern6$pattern7$pattern8$pattern9
+    echo -----------------------------------
+    #--------------------------------------------------------------
+    # if we have a valid file to process
+    #--------------------------------------------------------------
+    if   [ -z "${pattern}" ]; then
+	    id=""
+	    if [ "$oldgamepattern" != "$gamepattern" ]; then
+                 #--------------------------------------------------------------
+                 # get the id of the game from www.lemonamiga
+                 #--------------------------------------------------------------
+                 id=`"${LEMONAMIGAID}" "${gamepattern}"`
+	    else
+		    #------------------------------------------------
+		    # append meta info into gamelist.xml (just a copy)
+		    #------------------------------------------------
+		    echo '   <game>' >> ${TARGETGAMELIST}
+		    echo "      <path>./${gamefile}</path>" >> ${TARGETGAMELIST}
+		    echo "      <name>${gamename}</name>" >> ${TARGETGAMELIST}
+		    echo "      <image>${TARGETPICSDIR}${picname}</image>" >> ${TARGETGAMELIST}
+		    echo "      <releasedate>${year}</releasedate>" >> ${TARGETGAMELIST}
+		    echo "      <developer>${coder}</developer>" >> ${TARGETGAMELIST}
+		    echo "      <publisher>${publisher}</publisher>" >> ${TARGETGAMELIST}
+		    echo "      <genre>${genre}</genre>" >> ${TARGETGAMELIST}
+		    echo "      <players></players>" >> ${TARGETGAMELIST}
+		    echo "      <pic>${picname}</pic>" >> ${TARGETGAMELIST}
+		    echo "      <desc>hardware: ${hardware}, number of disks: $disks</desc>" >> ${TARGETGAMELIST}
+		    echo '   </game>' >> ${TARGETGAMELIST}
+            fi
+	    
+            #--------------------------------------------------------------
+            # if we have a valid id
+            #--------------------------------------------------------------
+	    if [ -n "${id}" ]; then
+		    echo trying to find ${COUNTER}: ${gamepattern} "..."
+		    meta=`"${LEMONAMIGAMETA}" "${gamepattern}"`
+		    echo $meta
+		
+		    publisher=`echo ${meta} | cut -f 3 -d '|'`
+		    publisher=${publisher#publisher=\"}
+		    publisher=${publisher%\"*}
+		    publisher=`echo ${publisher} | tr -d '[\372]'`
+		
+		    year=`echo ${meta} | cut -f 2 -d '|'`
+		    year=${year#year=\"}
+		    year=${year%\"*}
+		    year=`echo ${year}`
+	
+		    genre=`echo ${meta} | cut -f 6 -d '|'`
+		    genre=${genre#genre=\"}
+		    genre=${genre%\"*}
+		    genre=`echo ${genre} | tr -d '[\372]'`
+		
+		    coder=`echo ${meta} | cut -f 7 -d '|'`
+		    coder=${coder#coder=\"}
+		    coder=${coder%\"*}
+		    coder=`echo ${coder} | tr -d '[\372]'`
+	
+		    hardware=`echo ${meta} | cut -f 4 -d '|'`
+		    hardware=${hardware#hardware=\"}
+		    hardware=${hardware%\"*}
+		    hardware=`echo ${hardware}`
+		
+		    disks=`echo ${meta} | cut -f 5 -d '|'`
+		    disks=${disks#disks=\"}
+		    disks=${disks%\"*}
+	
+		    picurl=`echo ${meta} | cut -f 8 -d '|'`
+		    picurl=${picurl#pic=\"}
+		    picurl=${picurl%\"*}
+		    picname=${picurl##*/}
+	
+		   
+		    #------------------------------------------------------
+		    # download the picture and save it: try pic 09 - pic 01
+		    #------------------------------------------------------
+   		    if [ -f ${TARGETPICSDIR}${picname} ]; then
+			    echo "pic exisits"
+	            else
+			    echo "try the next pic"
+			    picurl=`echo ${meta} | cut -f 8 -d '|'`
+			    picurl=${picurl#pic=\"}
+			    picurl=${picurl%\"*}
+			    picurl=`echo ${picurl}`
+			    picname=${picurl##*/}
+			    echo picname $picname
+			    echo picurl $picurl
+			    wget -q ${picurl} && mv ${picname} ${TARGETPICSDIR}			    
+		    fi
+   		    if [ -f ${TARGETPICSDIR}${picname} ]; then
+			    echo "pic exisits"
+	            else
+			    echo "try the next pic"
+			    picurl=`echo ${meta} | cut -f 8 -d '|'`
+			    picurl=${picurl#pic=\"}
+			    picurl=${picurl%\"*}
+			    picurl=`echo ${picurl} | sed "s/_09/_08/g"`
+			    picname=${picurl##*/}
+			    echo picname $picname
+			    echo picurl $picurl
+			    wget -q ${picurl} && mv ${picname} ${TARGETPICSDIR}			    
+		    fi
+   		    if [ -f ${TARGETPICSDIR}${picname} ]; then
+			    echo "pic exisits"
+	            else
+			    echo "try the next pic"
+			    picurl=`echo ${meta} | cut -f 8 -d '|'`
+			    picurl=${picurl#pic=\"}
+			    picurl=${picurl%\"*}
+			    picurl=`echo ${picurl} | sed "s/_09/_07/g"`
+			    picname=${picurl##*/}
+			    echo picname $picname
+			    echo picurl $picurl
+			    wget -q ${picurl} && mv ${picname} ${TARGETPICSDIR}			    
+		    fi
+   		    if [ -f "${TARGETPICSDIR}${picname}" ]; then
+			    echo "pic exisits"
+	            else
+			    echo "try the next pic"
+			    picurl=`echo ${meta} | cut -f 8 -d '|'`
+			    picurl=${picurl#pic=\"}
+			    picurl=${picurl%\"*}
+			    picurl=`echo ${picurl} | sed "s/_09/_06/g"`
+			    picname=${picurl##*/}
+			    echo picname $picname
+			    echo picurl $picurl
+			    wget -q ${picurl} && mv ${picname} ${TARGETPICSDIR}			    
+		    fi
+   		    if [ -f "${TARGETPICSDIR}${picname}" ]; then
+			    echo "pic exisits"
+	            else
+			    echo "try the next pic"
+			    picurl=`echo ${meta} | cut -f 8 -d '|'`
+			    picurl=${picurl#pic=\"}
+			    picurl=${picurl%\"*}
+			    picurl=`echo ${picurl} | sed "s/_09/_05/g"`
+			    picname=${picurl##*/}
+			    echo picname $picname
+			    echo picurl $picurl
+			    wget -q ${picurl} && mv ${picname} ${TARGETPICSDIR}			    
+		    fi
+   		    if [ -f "${TARGETPICSDIR}${picname}" ]; then
+			    echo "pic exisits"
+	            else
+			    echo "try the next pic"
+			    picurl=`echo ${meta} | cut -f 8 -d '|'`
+			    picurl=${picurl#pic=\"}
+			    picurl=${picurl%\"*}
+			    picurl=`echo ${picurl} | sed "s/_09/_04/g"`
+			    picname=${picurl##*/}
+			    echo picname $picname
+			    echo picurl $picurl
+			    wget -q ${picurl} && mv ${picname} ${TARGETPICSDIR}			    
+		    fi
+   		    if [ -f "${TARGETPICSDIR}${picname}" ]; then
+			    echo "pic exisits"
+	            else
+			    echo "try the next pic"
+			    picurl=`echo ${meta} | cut -f 8 -d '|'`
+			    picurl=${picurl#pic=\"}
+			    picurl=${picurl%\"*}
+			    picurl=`echo ${picurl} | sed "s/_09/_03/g"`
+			    picname=${picurl##*/}
+			    echo picname $picname
+			    echo picurl $picurl
+			    wget -q ${picurl} && mv ${picname} ${TARGETPICSDIR}			    
+		    fi
+   		    if [ -f "${TARGETPICSDIR}${picname}" ]; then
+			    echo "pic exisits"
+	            else
+			    echo "try the next pic"
+			    picurl=`echo ${meta} | cut -f 8 -d '|'`
+			    picurl=${picurl#pic=\"}
+			    picurl=${picurl%\"*}
+			    picurl=`echo ${picurl} | sed "s/_09/_02/g"`
+			    picname=${picurl##*/}
+			    echo picname $picname
+			    echo picurl $picurl
+			    wget -q ${picurl} && mv ${picname} ${TARGETPICSDIR}			    
+		    fi
+   		    if [ -f "${TARGETPICSDIR}${picname}" ]; then
+			    echo "pic exisits"
+	            else
+			    echo "try the next pic"
+			    picurl=`echo ${meta} | cut -f 8 -d '|'`
+			    picurl=${picurl#pic=\"}
+			    picurl=${picurl%\"*}
+			    picurl=`echo ${picurl} | sed "s/_09/_01/g"`
+			    picname=${picurl##*/}
+			    echo picname $picname
+			    echo picurl $picurl
+			    wget -q ${picurl} && mv ${picname} ${TARGETPICSDIR}			    
+		    fi
+
+		    #------------------------------------------------
+		    # append meta info into gamelist.xml
+		    #------------------------------------------------
+
+		    numberofdisks=`ls -1 "${romdir}" | grep "${gamepattern}" | cut -b 1-500 | awk 'BEGIN{num=0}{num++}END{print num}'` 
+		    disks=$numberofdisks
+		    echo "number of disks = $disks"
+
+		    gamefilenames=`ls -1 "${romdir}" | grep "${gamepattern}" | cut -b 1-500 | awk '{print "\"" $0 "\""}'`
+		    echo "number of gamefilenames = $gamefilenames"
+
+  	            conffile=`echo ${gamefile} | sed 's/.adf/.conf/g'`
+		    echo "number of conffile = $conffile"
+
+		    echo '   <game>' >> ${TARGETGAMELIST}
+		    echo "      <path>./${conffile}</path>" >> ${TARGETGAMELIST}
+		    echo "      <name>${gamename}</name>" >> ${TARGETGAMELIST}
+		    echo "      <image>${TARGETPICSDIR}${picname}</image>" >> ${TARGETGAMELIST}
+		    echo "      <releasedate>${year}</releasedate>" >> ${TARGETGAMELIST}
+		    echo "      <developer>${coder}</developer>" >> ${TARGETGAMELIST}
+		    echo "      <publisher>${publisher}</publisher>" >> ${TARGETGAMELIST}
+		    echo "      <genre>${genre}</genre>" >> ${TARGETGAMELIST}
+		    echo "      <players></players>" >> ${TARGETGAMELIST}
+		    echo "      <pic>${picname}</pic>" >> ${TARGETGAMELIST}
+		    echo "      <desc>hardware: ${hardware}, number of disks: $disks</desc>" >> ${TARGETGAMELIST}	
+		    echo '   </game>' >> ${TARGETGAMELIST}
+
+		    #------------------------------------------------
+		    # generate conf file and cpy it to the right place
+		    #------------------------------------------------
+		    if [ ${disks} -gt "0" ]; then
+			    gameDisk1=`echo ${gamefilenames} | cut -f 2 -d '"' | tr '-' ' '  | tr \' ' ' | tr \´ ' ' | tr -s ' ' | sed 's/III/3/g' | sed 's/II/2/g'`
+			    disk1=`echo $romdir${gameDisk1}`
+		    fi
+		    if [ ${disks} -gt "1" ]; then
+			    gameDisk2=`echo ${gamefilenames} | cut -f 4 -d '"' | tr '-' ' '  | tr \' ' ' | tr \´ ' ' | tr -s ' ' | sed 's/III/3/g' | sed 's/II/2/g'`
+			    disk2=`echo $romdir${gameDisk2}`
+		    fi
+		    if [ ${disks} -gt "2" ]; then
+			    gameDisk3=`echo ${gamefilenames} | cut -f 6 -d '"' | tr '-' ' '  | tr \' ' ' | tr \´ ' ' | tr -s ' ' | sed 's/III/3/g' | sed 's/II/2/g'`
+			    disk3=`echo $romdir${gameDisk3}`
+		    fi 
+		    if [ ${disks} -gt "3" ]; then
+			    gameDisk4=`echo ${gamefilenames} | cut -f 8 -d '"' | tr '-' ' '  | tr \' ' ' | tr \´ ' ' | tr -s ' ' | sed 's/III/3/g' | sed 's/II/2/g'`
+			    disk4=`echo $romdir${gameDisk4}`
+		    fi
+
+ 		    echo "calling genConf"
+		    echo "confdir/conffile = \"${CONFDIR}${conffile}\""
+		    sudo ${GENERATECONF} "${disk1}" "${disk2}" "${disk3}" "${disk4}" ${disks} "${CONFDIR}/${conffile}"
+	    else
+		    echo "${COUNTER}": "${gamename}" " not found"		    
+		    echo "${gamename}" >> $FAILLIST
+
+	    fi;
+	    oldgamepattern="${gamepattern}"
+    else
+      echo "${COUNTER}": "${gamefile}" " not valid"
+    fi;	    
+    echo -----------------------------------
+done
+
+
+echo '</gameList>' >> ${TARGETGAMELIST}
+
+exit 1
+
+
+

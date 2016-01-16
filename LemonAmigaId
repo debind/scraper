@@ -1,0 +1,31 @@
+#!/bin/bash
+
+rm list* 2> /dev/null
+rm neu* 2> /dev/null
+
+gamename=`echo $1`
+
+link="http://www.lemonamiga.com/games/list.php?list_title=GAMENAME&submit.x=0&submit.y=0&list_box=&list_review=&list_document=&list_advert=&list_cheat=&list_video="
+
+pattern="s/GAMENAME/${gamename}/g"
+
+link=`echo ${link} | sed "${pattern}"`
+
+
+wget -q "${link}" && mv list.php* neu.html
+
+string=`cat neu.html | grep 'details.php?id='`
+string="${string#*details.php?id=}"
+id=${string%%\"*}
+
+string=`cat neu.html | grep 'list_year'`
+string="${string#*list_year=}"
+year=${string%%\&*}
+
+string=`cat neu.html | grep 'list_year'`
+string="${string#*list_publisher=}"
+publisher=${string%%\&*}
+
+
+
+echo $id

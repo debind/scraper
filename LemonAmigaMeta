@@ -1,0 +1,70 @@
+#!/bin/bash
+
+rm list* 2> /dev/null
+rm neu* 2> /dev/null
+
+gamename=`echo $1`
+
+
+link="http://www.lemonamiga.com/games/list.php?list_title=GAMENAME&submit.x=0&submit.y=0&list_box=&list_review=&list_document=&list_advert=&list_cheat=&list_video="
+
+pattern="s/GAMENAME/${gamename}/g"
+
+link=`echo ${link} | sed "${pattern}"`
+
+
+wget -q "${link}" && mv list.php* neu.html && sleep 0.01
+
+
+string=`cat neu.html | grep 'details.php?id='`
+string="${string#*details.php?id=}"
+id=${string%%\"*}
+
+string=`cat neu.html | grep 'list_year'`
+string="${string#*list_year=}"
+year=${string%%\&*}
+
+string=`cat neu.html | grep 'list_year'`
+string="${string#*list_publisher=}"
+publisher=${string%%\&*}
+
+rm details* 2> /dev/null
+rm neu2* 2> /dev/null
+
+
+link="http://www.lemonamiga.com/games/details.php?id=IDNUMBER"
+
+pattern="s/IDNUMBER/$id/g"
+
+link=`echo ${link} | sed "${pattern}"`
+
+
+wget -q "${link}" && mv details.php* neu2.html
+
+string=`cat neu2.html | grep 'list_hardware'`
+string="${string#*list_hardware=}"
+hardware=${string%%\"*}
+
+string=`cat neu2.html | grep 'list_disks'`
+string="${string#*list_disks=}"
+disks=${string%%\"*}
+
+string=`cat neu2.html | grep 'list_genre'`
+string="${string#*list_genre=}"
+genre=${string%%\&*}
+
+string=`cat neu2.html | grep 'list_sub_genre'`
+string="${string#*list_sub_genre=}"
+subgenre=${string%%\"*}
+
+string=`cat neu2.html | grep 'list_people'`
+string="${string#*list_people=}"
+coder=${string%%\"*}
+
+string=`cat neu2.html | grep 'img src=\"http://'`
+string="${string#*img src=\"http://}"
+pic=${string%%\"*}
+
+pic=`echo "${pic}" | sed 's/_01/_09/g'`
+
+echo id=\"$id\"\|year=\"$year\"\|publisher=\"$publisher\"\|hardware=\"${hardware}\"\|disks=\"${disks}\"\|genre=\"${genre} - ${subgenre}\"\|coder=\"${coder}\"\|pic=\"${pic}\"
