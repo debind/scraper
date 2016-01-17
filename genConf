@@ -30,6 +30,11 @@ if [ "$drives" = "4" ]; then
 	cat $TMPFILE2  > "${confname}"
 fi
 
+if [ "$drives" > "4" ]; then
+	cat $TMPFILE2  > "${confname}"
+fi
+
+
 rm $TMPFILE1
 rm $TMPFILE2
 

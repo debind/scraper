@@ -375,7 +375,7 @@ while [  ${COUNTER} -lt ${number} ]; do
 
  		    echo "calling genConf"
 		    echo "confdir/conffile = \"${CONFDIR}${conffile}\""
-		    sudo ${GENERATECONF} "${disk1}" "${disk2}" "${disk3}" "${disk4}" ${disks} "${CONFDIR}/${conffile}"
+		    sudo ${GENERATECONF} "${disk1}" "${disk2}" "${disk3}" "${disk4}" ${disks} "${CONFDIR}${conffile}"
 	    else
 		    echo "${COUNTER}": "${gamename}" " not found"		    
 		    echo "${gamename}" >> $FAILLIST
