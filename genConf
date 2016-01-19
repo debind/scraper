@@ -9,8 +9,23 @@ gamefile2=`echo $3`
 gamefile3=`echo $4`
 drives=`echo $5`
 confname=`echo $6`
+hardware=`echo $7`
 
-cat gametemplate500.conf | sed "s|df0=\(.*\)|df0=$gamefile0|g"  | sed "s|df1=\(.*\)|df1=$gamefile1|g" | sed "s|df2=\(.*\)|df2=$gamefile2|g" | sed "s|df3=\(.*\)|df3=$gamefile3|g" > $TMPFILE1
+if [ "${hardware}" = "AGA" ]; then
+	conftemplate=gametemplateAGA.conf
+fi
+
+if [ "${hardware}" = "OCS" ]; then
+	conftemplate=gametemplateOCS.conf
+fi
+
+cat $contemplate | sed "s|df0=\(.*\)|df0=$gamefile0|g"  | sed "s|df1=\(.*\)|df1=$gamefile1|g" | sed "s|df2=\(.*\)|df2=$gamefile2|g" | sed "s|df3=\(.*\)|df3=$gamefile3|g" > $TMPFILE1
+
+
+if [ "$drives" > "4" ]; then
+	drives="4"
+fi
+
 
 cat $TMPFILE1 | sed "s|drives=\(.*\)|drives=$drives|g" > $TMPFILE2
 
