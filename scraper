@@ -333,7 +333,8 @@ while [  ${COUNTER} -lt ${number} ]; do
 		    echo "      <genre>${genre}</genre>" >> ${TARGETGAMELIST}
 		    echo "      <players></players>" >> ${TARGETGAMELIST}
 		    echo "      <pic>${picname}</pic>" >> ${TARGETGAMELIST}
-		    echo "      <desc>hardware: ${hardware}, number of disks: $disks, filename = $gamefilename </desc>" >> ${TARGETGAMELIST}	
+		    echo "      <desc>hardware: ${hardware}, number of disks: $disks" >> ${TARGETGAMELIST}
+		    echo "filename = $gamefilename </desc>" >> ${TARGETGAMELIST}
 		    echo '   </game>' >> ${TARGETGAMELIST}
 
 		    #------------------------------------------------

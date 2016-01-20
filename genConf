@@ -11,43 +11,52 @@ drives=`echo $5`
 confname=`echo $6`
 hardware=`echo $7`
 
+echo "genConf: hardware $hardware"
+
 if [ "${hardware}" = "AGA" ]; then
-	conftemplate=gametemplateAGA.conf
+	echo "genConf: using AGA"
+	conftemplate="gametemplateAGA.conf"
+elif [ "${hardware}" = "OCS" ]; then
+	echo "genConf: using OCS"
+	conftemplate="gametemplateOCS.conf"
+else
+	echo "genConf: using didnt knoe"
+	conftemplate="gametemplateOCS.conf"
 fi
 
-if [ "${hardware}" = "OCS" ]; then
-	conftemplate=gametemplateOCS.conf
-fi
-
-cat $contemplate | sed "s|df0=\(.*\)|df0=$gamefile0|g"  | sed "s|df1=\(.*\)|df1=$gamefile1|g" | sed "s|df2=\(.*\)|df2=$gamefile2|g" | sed "s|df3=\(.*\)|df3=$gamefile3|g" > $TMPFILE1
+cat $conftemplate | sed "s|df0=\(.*\)|df0=$gamefile0|g"  | sed "s|df1=\(.*\)|df1=$gamefile1|g" | sed "s|df2=\(.*\)|df2=$gamefile2|g" | sed "s|df3=\(.*\)|df3=$gamefile3|g" > $TMPFILE1
 
 
 if [ "$drives" > "4" ]; then
 	drives="4"
 fi
 
-
-cat $TMPFILE1 | sed "s|drives=\(.*\)|drives=$drives|g" > $TMPFILE2
-
-if [ "$drives" = "1" ]; then
+if [ "${hardware}" = "AGA" ]; then
+	cat $TMPFILE1 | sed "s|drives=\(.*\)|drives=$drives|g" > $TMPFILE2
+	if [ "$drives" = "1" ]; then
+		cat $TMPFILE2 | sed '/df3=/d' | sed '/df2=/d' | sed '/df1=/d' > "${confname}"
+	fi
+	
+	if [ "$drives" = "2" ]; then
+		cat $TMPFILE2 | sed '/df3=/d' | sed '/df2=/d' > "${confname}"
+	fi
+	
+	if [ "$drives" = "3" ]; then
+		cat $TMPFILE2 | sed '/df3=/d' > "${confname}"
+	fi
+	
+	if [ "$drives" = "4" ]; then
+		cat $TMPFILE2  > "${confname}"
+	fi
+	
+	if [ "$drives" > "4" ]; then
+		cat $TMPFILE2  > "${confname}"
+	fi
+else
+	cat $TMPFILE1 | sed "s|drives=\(.*\)|drives=1|g" > $TMPFILE2
 	cat $TMPFILE2 | sed '/df3=/d' | sed '/df2=/d' | sed '/df1=/d' > "${confname}"
 fi
 
-if [ "$drives" = "2" ]; then
-	cat $TMPFILE2 | sed '/df3=/d' | sed '/df2=/d' > "${confname}"
-fi
-
-if [ "$drives" = "3" ]; then
-	cat $TMPFILE2 | sed '/df3=/d' > "${confname}"
-fi
-
-if [ "$drives" = "4" ]; then
-	cat $TMPFILE2  > "${confname}"
-fi
-
-if [ "$drives" > "4" ]; then
-	cat $TMPFILE2  > "${confname}"
-fi
 
 
 rm $TMPFILE1
